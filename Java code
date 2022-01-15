@@ -1,0 +1,174 @@
+package com.example.audiogramhearinglossapp;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.media.AudioManager;
+import android.media.MediaPlayer;
+import android.os.Bundle;
+import android.view.MotionEvent;
+import android.view.View;
+import android.widget.Button;
+import android.widget.SeekBar;
+
+import com.jjoe64.graphview.GraphView;
+import com.jjoe64.graphview.series.DataPoint;
+import com.jjoe64.graphview.series.LineGraphSeries;
+
+import androidx.appcompat.app.AppCompatActivity;
+import android.os.Bundle;
+import android.util.Log;
+import com.parse.Parse;
+import com.parse.ParseACL;
+import com.parse.ParseAnalytics;
+import com.parse.ParseException;
+import com.parse.ParseFile;
+import com.parse.ParseObject;
+import com.parse.ParseUser;
+import com.parse.SaveCallback;
+import android.widget.Toast;
+
+import java.io.ByteArrayOutputStream;
+
+
+public class MainActivity extends AppCompatActivity {
+    
+    Button v1000, v2000, v3000, confirm, upload;
+    MediaPlayer mediaPlayer;
+    SeekBar seekBar;
+    AudioManager audioManager;
+    GraphView graphView;
+    LineGraphSeries<DataPoint> data;
+    int hz, vol;
+    
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        Parse.enableLocalDatastore(this);
+        Parse.initialize(new Parse.Configuration.Builder(getApplicationContext())
+                .applicationId( "myappID") // appID
+                .clientKey("c9LI9nj90Mme") // masterKey
+                .server("http://54.234.172.206/parse/") // serverURL; we need a '/' at the end
+                .build()
+        );
+
+        ParseAnalytics.trackAppOpenedInBackground(getIntent());
+        ParseUser.enableAutomaticUser();
+        ParseACL defaultACL = new ParseACL();
+        defaultACL.setPublicReadAccess(true);
+        defaultACL.setPublicWriteAccess(true);
+        ParseACL.setDefaultACL(defaultACL, true);
+
+        upload = findViewById(R.id.button5);
+        upload.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                ParseObject audiogram = new ParseObject("Audiogram");
+                audiogram.put("name", "Zong");
+                audiogram.put("HZ", Integer.toString(hz));
+                audiogram.put("level", Integer.toString(vol));
+
+                Bitmap bitmap = Bitmap.createBitmap(graphView.getWidth(),graphView.getHeight(),Bitmap.Config.ARGB_8888);
+                Canvas canvas = new Canvas(bitmap);
+                graphView.draw(canvas);
+                ByteArrayOutputStream stream = new ByteArrayOutputStream();
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
+                byte[] bytes = stream.toByteArray();
+                ParseFile file = new ParseFile("audiogram.png", bytes);
+
+                audiogram.put("image", file);
+                audiogram.saveInBackground(new SaveCallback() {
+                    @Override
+                    public void done(ParseException e) {
+                        if (e==null){
+                            Toast.makeText(MainActivity.this, "Data uploaded", Toast.LENGTH_SHORT).show();
+
+                        } else {
+                            Toast.makeText(MainActivity.this, e.getMessage(), Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                });
+
+            }
+        });
+        v1000 = findViewById(R.id.button);
+        v2000 = findViewById(R.id.button2);
+        v3000 = findViewById(R.id.button3);
+        confirm = findViewById(R.id.button4);
+        seekBar = findViewById(R.id.seekBar);
+        graphView = findViewById(R.id.graphView);
+        data = new LineGraphSeries<>(new DataPoint[]{});
+        mediaPlayer = MediaPlayer.create(MainActivity.this, R.raw.v1000);
+        mediaPlayer.stop();
+
+        audioManager = (AudioManager)getSystemService(AUDIO_SERVICE);
+        int maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+        seekBar.setMax(maxVol);
+        seekBar.setProgress(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC));
+        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if(fromUser){
+                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, progress,1);
+                }
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+
+            }
+        });
+        
+        confirm.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                vol = seekBar.getProgress();
+                confirm.setText(Integer.toString(vol) + " at the frequency of " + Integer.toString(hz));
+                data.appendData(new DataPoint(hz, vol), true, 100);
+                graphView.addSeries(data);
+            }
+        });
+
+        v1000.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mediaPlayer.stop();
+                mediaPlayer = MediaPlayer.create(MainActivity.this, R.raw.v1000);
+                mediaPlayer.setLooping(true);
+                mediaPlayer.start();
+                hz = 1000;
+            }
+        });
+
+        v2000.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mediaPlayer.stop();
+                mediaPlayer = MediaPlayer.create(MainActivity.this, R.raw.v2000);
+                mediaPlayer.setLooping(true);
+                mediaPlayer.start();
+                hz = 2000;
+            }
+        });
+
+        v3000.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mediaPlayer.stop();
+                mediaPlayer = MediaPlayer.create(MainActivity.this, R.raw.v3000);
+                mediaPlayer.setLooping(true);
+                mediaPlayer.start();
+                hz = 3000;
+            }
+        });
+
+    }
+}
